@@ -1,0 +1,316 @@
+
+# Intro to GIS with R
+
+__STACEY MAPLES__ - GEOSPATIAL MANAGER - STANFORD GEOSPATIAL CENTER - <STACEMAPLES@STANFORD.EDU>   
+__DAVID MEDEIROS__ - GIS INSTRUCTION & SUPPORT SPECIALIST - STANFORD GEOSPATIAL CENTER - <DAVIDMED@STANFORD.EDU>  
+_Rewritten for R by_ __*ANA RIVERA*__ - _GIS ASSISTANT - STANFROD GEOSPATIAL CENTER - <ARIVERAR@STANFORD.EDU>_  
+
+
+This introductory session will focus upon the fundamental concepts and skills needed to begin using
+Geographic Information Systems software for the exploration and analysis of spatial data using
+R.  Topics will include:
+What is GIS?
+* Spatial Data Models and Formats
+* Projections and Coordinate Systems
+* Basic Data Management
+* The ArcMap User Interface
+* Simple Analysis using Visualization.
+
+## GIS Resources 
+
+* Stanford Geospatial Center website - <http://gis.stanford.edu/>  
+* Stanford GIS Listserv - <https://mailman.stanford.edu/mailman/listinfo/stanfordgis>
+
+
+## Download Tutorial Data 
+
+1. Go to <https://stanford.box.com/SGCIntroGIS> and click on the drop-down arrow to the right of each folder to download individual datasets. Save the Dataset to your Desktop.
+2. Right-click on the resulting __*.zip__ file and select Extract All...
+3. Accept all defaults to extract the data file.
+
+
+
+## Open R Studio and explore the user interface 
+RStudio is a free and open-source integrated development environment (IDE) for R, a programming language for statistical computing and graphics. The first thing we want to do is __OPEN R Studio__ and get familiar with the User Interface, divided into 4 Panes
+* Source: Top-left
+* Console: Bottom-left
+* Environment/History: Top-right
+* Files/Plots/Packages/Help/Viewer
+
+
+## Set a working directory 
+Remember the dreaded "Absolute Paths" problem, endemic to GIS Softwares? To fix this issue, we changed the _"Absolute Paths"_ to _"Relative Paths"_ in the ArcMAp settings. In R Studio it is also a good practice to have a single folder for each project. In this case it is our IntrotoGIS_R folder. We will save our script within this folder, to then use relative paths.
+
+1. On the Files Tab, __click__ the thre dots and go to the Intro_GIS_R folder. You should see a Data Folder and an IntrotoGIS_R.R document. 
+
+2. Open the Data folder and set our working directory `setwd()` 
+
+
+## Explore the Data folder
+Using the File tab, __click and expand__ the Data folder. Note that, while there are 23 files in this folder, there are actually only 3 Shapefiles and a dbf table here. This is because a Shapefile isn't really a file but a collection of files. A very important point about many types of geographic data formats is that geographic datasets are often not easily manageable using software not specifically designed for handling GIS data.  In the case of the Shapefile, for example, if you wish to rename or move a shapefile, you must move or rename ALL of its component files in exactly the same way, or you can corrupt the shapefile.
+
+## Install packages
+An R package contains functions, data, examples and documentation. These packages can be developed by any R user. For this tutorial we will be using packages to manage spatial data. 
+
+* __tidyverse__: A collection of packages for data science.`install.packages("tidyverse")` <https://www.tidyverse.org/> 
+* __rgdal__: Read and write geospatial data.`install.packages("rgdal")` <https://cran.r-project.org/web/packages/rgdal/index.html>
+
+
+```{r}
+library(tidyverse)
+library(rgdal)
+```
+
+
+## Read and Explore Shapefiles 
+
+__Read the World Countries shapefile__
+```{r}
+World_Countries <- readOGR("C:/Users/ariverar/Desktop/Intro_GIS_R/Data", "World_Countries") 
+# Shapefile with 249 features and 18 attributes
+
+class(World_Countries) 
+#Spatial Polygons Data Frame. This is a polygon shapefile with an "attribute table" (Data Frame)
+ 
+#View the Coordinate System. Notice it is set to WGS84
+World_Countries@proj4string
+
+#Explore World Countries attribute table
+head(World_Countries@data, 3) #shows the first 3 records
+View(World_Countries@data) #opens the attribute table 
+
+plot(World_Countries)
+```
+
+
+
+__Read the World Cities shapefile__
+```{r}
+Cities <- readOGR("C:/Users/ariverar/Desktop/Intro_GIS_R/Data", "Cities") 
+#Shapefile with 2539 features and 14 attributes
+
+class(Cities) 
+#Spatial Points Data Frame. This is a point shapefile with an "attribute table" (Data Frame)
+ 
+#View the Coordinate System. Notice it is set to WGS84
+Cities@proj4string
+
+#Explore World Countries attribute table
+head(Cities@data, 3) #shows the first 3 records
+plot(Cities)
+
+```
+
+## Working with Layers and Their Properties
+__Examining the Cities attribute table__
+
+```{r}
+View(Cities@data)
+```
+
+The most basic method of analysis in GIS is selection and sub-setting of data by attribute values.Now that the Cities Data Frame is visible open, we can begin to address the fact that this layer is a bit overpopulated for our purposes.  Let's say we are interested in visualizing the global distribution of cities with __populations greater than or equal to 1 million__.  First we need to see if the data necessary to do this exists in our dataset.
+
+1. Scroll to the right until you can see the POP, POP_RANK and POP_CLASS Attribute Fields
+2. Click on the POP Field Header and select Sort Descending (Arrow Down).
+3. Scroll down through the Attribute table to examine the relationship between these three variables.
+
+__Selecting by Attributes__
+
+What we would like to do is select all of the cities in this dataset that have a population of 1 million or greater.  This can be accomplished using any one of these three of these variables, but we will use the POP_RANK variable for the sake of simplicity.
+
+
+## Exporting Data 
+__Subset Cities and save as a new Major Cities object__
+```{r}
+MajorCities <- subset(Cities, POP_RANK<=2)
+
+```
+
+When we do the `str(MajorCities)` we will se that the POP_CLASS is a Factor and has 7 levels. We know that we only should have 2 levels (POP_RANK = 1 and POP_RANK = 2). To remove levels from a factor we will apply the factor() to POP_CLASS after subsetting:
+
+```{r}
+MajorCities$POP_CLASS <- factor(MajorCities$POP_CLASS)
+```
+Now, verify the 2 levels and plot Major Cities
+
+```{r}
+levels(MajorCities$POP_CLASS)
+
+plot(MajorCities, col="green", add=TRUE)
+```
+
+
+__Create a new shapefile for Major Cities__  
+Get your working directory `getwd()` to save it to our curren working directory
+`writeOGR(MajorCities, getwd(), "MajorCities", driver="ESRI Shapefile")`
+Go to your File > Data folder. You should see 4 files that make the MajorCities shapefile.
+
+
+## Join a Table to a Layer 
+Now we will turn our attention to the World_Countries Layer.Ultimately, we would like to visualize the layer based upon population density. However, the attribute table for this layer doesn't contain data on population.
+Fortunately we have a table ( __World_Population2007__ ) with the necessary population attribute.
+Because this is a dbf file, we will beed to install the _foreign package_ `install.packages("foreign")`
+
+__Read DBF Table__  
+```{r}
+library(foreign)
+
+World_Population07<-read.dbf("C:/Users/ariverar/Desktop/Intro_GIS_R/Data/World_Population_2007.dbf")
+str(World_Population07)
+View(World_Population07)
+```
+
+View the World_Population2007 table. Note the __FIPS_CNTRY__ Attribute Field. Now, view the World_Countries table and nothe that it also has a FIPS_CNTRY Field. Since this attribute exists in both of these attribute tables, and its values are identical across the two datasets, we can use this attribute as the "Key Field" for our table join. We want to join only attributes that match. 
+
+```{r}
+CountriesPop <- merge(World_Countries, World_Population07, by='FIPS_CNTRY')
+View(CountriesPop@data)
+```
+On the CountriesPop table,  note the POP 2007 attribute (along with all other attributes from the World_Population_2007 table).
+
+## Definition Queries  
+You may have notice that many of the features in the CountriesPop table had values of __-999999__ for the POP2007 attributes. This normally indicates __NODATA__ for the particular feature in demographic datasets.  In this case, we would like to exclude this value from our Map. We could use the method used to subset the Cities layer earlier in the tutorial, and create a new shapefile, like the ones we have used to create the Major Cities shapefile. This time we will use another method, that does not require creating a new dataset (preventing redundancy in data storage) and does not alter the dataset being referenced, only our view of it in QGIS.
+
+```{r}
+WorldPop <- CountriesPop[CountriesPop@data$POP2007 !="-99999", ]
+View(WorldPop@data)
+```
+
+## Let's Map 
+Clean your plots window using the `dev.off()` command. 
+
+
+
+__Symbolize Countries by Population Density__  
+Even though the __POP2007__ variable is a raw counts variable, we can use divide the POP2007 variable by the area of the features to create the density value.
+
+```{r}
+WorldPop$PopDen <- WorldPop$POP2007/WorldPop$SQMI
+```
+
+
+
+__Define Color Ramp and Classification Method__  
+Color Palette Cheatsheet:<https://www.nceas.ucsb.edu/~frazier/RSpatialGuides/colorPaletteCheatsheet.pdf>
+
+
+```{r}
+install.packages("RColorBrewer")
+install.packages("classInt")
+```
+
+
+```{r}
+library(RColorBrewer)
+nclr <- 5 #Number of classes 
+plotclr <- brewer.pal(nclr, "Reds")
+
+
+library(classInt)
+class <- classIntervals(WorldPop$PopDen, nclr, style = "quantile", dataPrecision = 0) #dataPrecision 0
+colcode <- findColours(class, plotclr)
+```
+
+
+
+__Plot Countries by Population Density__
+
+```{r}
+plot(WorldPop, col=colcode, border="grey", bg="lightblue1") #border = NA to omit borders. 
+
+```
+
+
+
+__Symbolize Major Cities__  
+We have two classes of __POP_RANK__ to work with, and would like to distinguish them from one another, visually. 
+```{r}
+#Create a color pallete for each class 
+citiesPalette <- c("grey40", "black")[MajorCities$POP_CLASS]
+
+#Create vector with point size
+citiesSize <- c(0.3, .75)[MajorCities$POP_CLASS]
+citiesSymbol <- c(20, 19)[MajorCities$POP_CLASS]
+
+#Symbolize Cities by Size
+plot(MajorCities, col=citiesPalette, pch=citiesSymbol, cex=citiesSize, add=TRUE)
+```
+For more information about parameters: <https://www.statmethods.net/advgraphs/parameters.html>
+
+
+__Label Cities__  
+
+```{r}
+CityLabel <- subset(MajorCities, POP_RANK<=1)
+text(CityLabel, labels=CityLabel$CITY_NAME, cex = 0.4, offset =0.25, font=1, pos=4) #font = 2 bold
+```
+
+
+
+__Zoom to region (Bookmarks)__  
+CRAN: <https://cran.r-project.org/web/packages/zoom/zoom.pdf>
+
+If you want to zoom-in to a particular region, install the _zoom_ package 
+```{r}
+install.packages("zoom")
+library(zoom)
+```
+
+`sq.zoom()` allows you to click on two corners of a region. ESC to finish. 
+`move.to.click.zoom()` allows you to click on what will be the center of the plot. 
+
+
+
+
+## Adding Map Elements
+__Legend__
+
+```{r}
+legend(-160, 0, legend=as.character(levels(MajorCities$POP_CLASS)),
+       pch = c(20, 19),
+       col = c("grey40", "black"),
+       cex=.5, #Legend size
+       bty = "n", #avoid border line
+       title = "Urban Agglomerations\n Population")
+
+
+legend(-160, -35, legend=names(attr(colcode, "table")), 
+       fill=attr(colcode, "palette"),
+       cex =.5,
+       bg="white",
+       bty = "n",
+       title = "Population Density \n Persons per square mile")
+
+```
+
+
+__Add Scale__   
+CRAN: <https://cran.biodisk.org/web/packages/maps/maps.pdf>
+
+`install.packages("maps")`
+```{r}
+library(maps)
+map.scale(-10,-75, relwidth = .10, metric = FALSE, ratio = FALSE, cex=0.5)
+```
+
+
+__Add Text__ 
+```{r}
+title("Urban Agglomerations")
+text(120, -85, "Cartography by Ana Rivera \n January 2018", cex=.5, adj =c(0,0))
+```
+
+__Border__
+```{r}
+box(which = "plot", lty="solid", lwd = 2)
+box(which = "outer", lty="solid", lwd = 2) #For a neatline
+```
+
+
+
+## Export your map 
+Export as png or as eps to open the file using Adobe Illustrator __outside your _Data_ folder__ 
+<https://stat.ethz.ch/R-manual/R-devel/library/grDevices/html/png.html>
+
+
+
